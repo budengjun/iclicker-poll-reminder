@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>iClicker Monitor Options</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      padding: 20px;
+      min-width: 400px;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    textarea {
+      width: 100%;
+      height: 80px;
+      resize: vertical;
+      font-family: monospace;
+    }
+    .help-text {
+      font-size: 0.85em;
+      color: #666;
+      margin-top: 5px;
+    }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+    }
+    .checkbox-group input {
+      margin-right: 10px;
+    }
+    button {
+      padding: 8px 16px;
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #status {
+      margin-left: 10px;
+      color: green;
+      font-weight: bold;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+    #test-btn {
+      background-color: #6c757d;
+      margin-right: 10px;
+    }
+    #test-btn:hover {
+      background-color: #5a6268;
+    }
+  </style>
+</head>
+<body>
+  <h2>iClicker Monitor Settings</h2>
+
+  <div class="form-group">
+    <label for="selectors">Target DOM Selectors (one per line):</label>
+    <textarea id="selectors" placeholder="#question-text&#10;.countdown-timer&#10;#submit-btn"></textarea>
+    <div class="help-text">
+      Enter CSS selectors to monitor (e.g., #id, .class). Leave empty to use auto-detection mode.
+    </div>
+  </div>
+
+  <div class="form-group checkbox-group">
+    <input type="checkbox" id="enable-beep">
+    <label for="enable-beep" style="margin-bottom: 0;">Enable simple beep sound</label>
+  </div>
+
+  <div class="form-group">
+    <button id="test-btn">Test Notification</button>
+    <button id="save">Save</button>
+    <span id="status">Options saved.</span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      width: 200px;
+      padding: 15px;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    .status {
+      color: green;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+    button {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+      cursor: pointer;
+    }
+    #settings-btn {
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+    }
+    #test-btn {
+      background-color: #007bff;
+      color: white;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="status">Monitoring Active</div>
+  <button id="test-btn">Test Notification</button>
+  <button id="settings-btn">Settings</button>
+  <script src="popup.js"></script>
+</body>
+</html>

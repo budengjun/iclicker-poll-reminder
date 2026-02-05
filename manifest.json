@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "iClicker Monitor",
+  "version": "1.0",
+  "description": "Monitors iClicker student page for new questions and notifies the user.",
+  "permissions": [
+    "notifications",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://student.iclicker.com/*"
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "iClicker Monitor"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://student.iclicker.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_end"
+    }
+  ]
+}
