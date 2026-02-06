@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iClicker Simulation</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .container { border: 1px solid #ccc; padding: 20px; margin-top: 20px; }
+        .hidden { display: none; }
+        .question-image-container { margin-bottom: 10px; }
+        .img-border { border: 2px solid red; width: 100px; height: 100px; background-color: #eee; }
+        .question-answer-container { border: 1px solid blue; padding: 10px; background-color: #f0f8ff; }
+        button { padding: 10px 20px; font-size: 16px; margin-right: 10px; cursor: pointer; }
+        #status-text { font-weight: bold; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>iClicker Simulator</h1>
+    <p>Use this page to test the extension locally.</p>
+
+    <div class="controls">
+        <button id="btn-start">Start Question (Polling Open)</button>
+        <button id="btn-stop">Stop Question (Polling Closed)</button>
+        <button id="btn-timer">Update Timer</button>
+    </div>
+
+    <div class="container">
+        <div id="status-text">Waiting...</div>
+
+        <!-- Simulate .question-image-container img.img-border -->
+        <div id="q-img-area" class="question-image-container hidden">
+            <p>Question Image:</p>
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="img-border" alt="Question">
+        </div>
+
+        <!-- Simulate .question-answer-container -->
+        <div id="q-ans-area" class="question-answer-container hidden">
+            <p>Answer Options:</p>
+            <button>A</button> <button>B</button> <button>C</button> <button>D</button>
+            <br><br>
+            <button id="submit-btn">Vote / Submit</button>
+        </div>
+
+        <div id="timer-area"></div>
+    </div>
+
+    <script>
+        const btnStart = document.getElementById('btn-start');
+        const btnStop = document.getElementById('btn-stop');
+        const btnTimer = document.getElementById('btn-timer');
+
+        const statusText = document.getElementById('status-text');
+        const imgArea = document.getElementById('q-img-area');
+        const ansArea = document.getElementById('q-ans-area');
+        const timerArea = document.getElementById('timer-area');
+
+        let questionCount = 1;
+
+        btnStart.addEventListener('click', () => {
+            // Update status to contain keywords
+            statusText.innerText = `Polling Open - Question ${questionCount}`;
+
+            // Show elements that match selectors
+            imgArea.classList.remove('hidden');
+            ansArea.classList.remove('hidden');
+
+            timerArea.innerText = "Seconds Remaining: 30";
+        });
+
+        btnStop.addEventListener('click', () => {
+            statusText.innerText = "Polling Closed";
+
+            // Hide elements
+            imgArea.classList.add('hidden');
+            ansArea.classList.add('hidden');
+
+            timerArea.innerText = "";
+            questionCount++;
+        });
+
+        btnTimer.addEventListener('click', () => {
+            // Just update text to trigger mutation observer
+            const current = timerArea.innerText;
+            if (current.includes('Seconds Remaining')) {
+                const parts = current.split(': ');
+                let sec = parseInt(parts[1]);
+                if (sec > 0) sec--;
+                timerArea.innerText = `Seconds Remaining: ${sec}`;
+            } else {
+                timerArea.innerText = "Timer update (idle)";
+            }
+        });
+    </script>
+</body>
+</html>
