@@ -53,6 +53,14 @@ function startObserver() {
 function checkPage() {
   const bodyText = document.body.innerText;
 
+  // Debug Log
+  console.log('iClicker Monitor Debug:', {
+    timestamp: new Date().toISOString(),
+    isPollingClosed: /Polling\s+Closed/i.test(bodyText),
+    lastState: JSON.parse(JSON.stringify(lastState)),
+    bodySnippet: bodyText.substring(0, 100)
+  });
+
   // Global Guard: If "Polling Closed" is present, do not notify.
   // We use a case-insensitive check.
   if (/Polling\s+Closed/i.test(bodyText)) {
@@ -65,6 +73,7 @@ function checkPage() {
 
   const isPollingClosed = /Polling\s+Closed/i.test(bodyText);
   let shouldNotify = false;
+  let decisionReason = '';
 
   // --- Specific Selector Logic ---
 
@@ -77,6 +86,7 @@ function checkPage() {
   if (lastState.answerText === '' && currentAnswerText !== '') {
     if (!/answer received/i.test(currentAnswerText)) {
       shouldNotify = true;
+      decisionReason = 'Answer Text Appeared';
     }
   }
 
@@ -95,6 +105,7 @@ function checkPage() {
   // If lastState.imgSrc was 'A', and now 'B', that's a change.
   if (currentImgSrc && currentImgSrc !== lastState.imgSrc) {
     shouldNotify = true;
+    decisionReason = `Image Src Changed (New: ${currentImgSrc ? 'Yes' : 'No'})`;
   }
 
   // Update state
@@ -102,13 +113,12 @@ function checkPage() {
 
 
   // --- Fallback / Auto-Detection Logic ---
-  // If no specific selectors matched (or we want to support generic cases), we run the heuristic
-  // Only run if we haven't already decided to notify based on specific selectors.
+  // We ALWAYS calculate the hash to keep lastState.hash in sync, avoiding double-notifications
+  // if we switch between specific logic and fallback logic (or if specific logic triggers first).
 
-  if (!shouldNotify) {
-    let currentHash = '';
-    
-    if (settings.selectors && settings.selectors.length > 0) {
+  let currentHash = '';
+
+  if (settings.selectors && settings.selectors.length > 0) {
       // Custom Selector Mode
       const parts = [];
       settings.selectors.forEach(sel => {
@@ -119,7 +129,7 @@ function checkPage() {
         }
       });
       currentHash = parts.join('|');
-    } else {
+  } else {
       // Auto-Detection Mode Heuristics
 
       // Keywords
@@ -144,23 +154,30 @@ function checkPage() {
       // Question Number
       const qMatch = bodyText.match(/Question \d+/i);
       if (qMatch) currentHash += `|${qMatch[0]}`;
-    }
-
-    // Logic: If hash changes from empty -> non-empty, or changes content significantly
-    // We treat "Empty" as "No Question".
-    if (currentHash !== lastState.hash) {
-      if (lastState.hash === '' && currentHash !== '') {
-        shouldNotify = true;
-      } else if (lastState.hash !== '' && currentHash !== '') {
-        // Change between two active states (e.g. Q1 -> Q2)
-        shouldNotify = true;
-      }
-      // Note: If currentHash is empty (stopped), we do NOT notify.
-    }
-
-    lastState.hash = currentHash;
   }
 
+  // Only use the hash change decision if we haven't already decided to notify via specific selectors
+  // But we MUST update the state regardless.
+  if (currentHash !== lastState.hash) {
+    // Only set shouldNotify if it wasn't already true
+    if (!shouldNotify) {
+        if (lastState.hash === '' && currentHash !== '') {
+            shouldNotify = true;
+            decisionReason = 'Auto-Detect: Start';
+        } else if (lastState.hash !== '' && currentHash !== '') {
+            // Change between two active states (e.g. Q1 -> Q2)
+            shouldNotify = true;
+            decisionReason = 'Auto-Detect: Change';
+        }
+    }
+  }
+
+  lastState.hash = currentHash;
+
+  // Debug Log Final
+  if (shouldNotify) {
+    console.log(`iClicker Monitor: Notify Decision TRUE. Reason: ${decisionReason}, PollingClosed: ${isPollingClosed}`);
+  }
 
   // --- Final Decision ---
   if (shouldNotify && !isPollingClosed) {
