@@ -21,8 +21,8 @@
     <p>Use this page to test the extension locally.</p>
 
     <div class="controls">
-        <button id="btn-start">Start Question (Polling Open)</button>
-        <button id="btn-stop">Stop Question (Polling Closed)</button>
+        <button id="btn-start">Start Question (Open Poll)</button>
+        <button id="btn-stop">Stop Question (End Poll)</button>
         <button id="btn-timer">Update Timer</button>
     </div>
 
@@ -66,7 +66,7 @@
             imgArea.classList.remove('hidden');
             ansArea.classList.remove('hidden');
 
-            timerArea.innerText = "Seconds Remaining: 30";
+            timerArea.innerText = "Seconds Remaining: 0:30";
         });
 
         btnStop.addEventListener('click', () => {
@@ -85,9 +85,13 @@
             const current = timerArea.innerText;
             if (current.includes('Seconds Remaining')) {
                 const parts = current.split(': ');
-                let sec = parseInt(parts[1]);
+                // 0:30 -> parts[1] is 0, parts[2] is 30 ? No, split(': ') -> ["Seconds Remaining", "0:30"]
+                // Then split "0:30" by ":" -> ["0", "30"]
+                const timeStr = parts[1];
+                const timeParts = timeStr.split(':');
+                let sec = parseInt(timeParts[1]);
                 if (sec > 0) sec--;
-                timerArea.innerText = `Seconds Remaining: ${sec}`;
+                timerArea.innerText = `Seconds Remaining: 0:${sec < 10 ? '0'+sec : sec}`;
             } else {
                 timerArea.innerText = "Timer update (idle)";
             }
