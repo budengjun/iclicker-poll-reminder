@@ -3,7 +3,13 @@ let settings = {
   enableBeep: true
 };
 
-let lastHash = '';
+// State management
+let lastState = {
+  answerText: '',
+  imgSrc: '',
+  hash: '' // for fallback/auto-mode compatibility
+};
+
 let debounceTimer = null;
 const DEBOUNCE_DELAY = 1000; // Check max once per second to avoid spam
 
@@ -37,7 +43,7 @@ function startObserver() {
     subtree: true,
     characterData: true,
     attributes: true,
-    attributeFilter: ['disabled', 'class', 'style'] // Watch for button enabling/disabling
+    attributeFilter: ['disabled', 'class', 'style', 'src'] // Added 'src' for image tracking
   });
   
   // Initial check
@@ -45,90 +51,117 @@ function startObserver() {
 }
 
 function checkPage() {
-  let currentHash = '';
-  let questionDetected = false;
+  const bodyText = document.body.innerText;
 
-  if (settings.selectors && settings.selectors.length > 0) {
-    // Custom Selector Mode
-    const parts = [];
-    settings.selectors.forEach(sel => {
-      const el = document.querySelector(sel);
-      if (el) {
-        // If element exists, we consider it potential activity.
-        // We include its text in the hash. 
-        // If the element just appeared, text might be empty or specific.
-        parts.push(el.innerText.trim());
-      }
-    });
-
-    // If we found any content in the targeted selectors
-    const content = parts.join('|');
-    if (content.length > 0) {
-      currentHash = content;
-      // We assume detection if the content is "meaningful" (not empty)
-      // Users might select a container that is always there but empty.
-      if (currentHash.replace(/\|/g, '').length > 0) {
-        questionDetected = true;
-      }
-    }
-    
-  } else {
-    // Auto-Detection Mode
-    const bodyText = document.body.innerText;
-    
-    // Heuristic 1: Keywords
-    const keywords = ['Polling', 'Question 1', 'Question 2', 'Question 3', 'Question 4', 'Question 5', 'Seconds Remaining'];
-    const keywordMatch = keywords.find(k => bodyText.includes(k));
-    if (keywordMatch) {
-      currentHash += `|KEY:${keywordMatch}`;
-      questionDetected = true;
-    }
-    
-    // Heuristic 2: Enabled Submit Button
-    const buttons = Array.from(document.querySelectorAll('button, input[type="submit"]'));
-    const activeSubmit = buttons.find(b => 
-      !b.disabled && 
-      (b.innerText.match(/Submit|Vote|Send/i) || b.value.match(/Submit|Vote|Send/i))
-    );
-
-    if (activeSubmit) {
-      currentHash += `|BTN:${activeSubmit.innerText}`;
-      questionDetected = true;
-    }
-
-    // Heuristic 3: Countdown
-    // Look for text matching time patterns like "0:30", "1:00"
-    // We check for presence but don't include the exact time in hash to avoid spamming every second.
-    const timerMatch = bodyText.match(/\d{1,2}:\d{2}/);
-    if (timerMatch) {
-      currentHash += `|TIMER_PRESENT`;
-      questionDetected = true;
-    }
-    
-    // Scan for "Polling" status specifically (redundant with keywords but harmless)
-    if (bodyText.match(/Polling|Poll Open/i)) {
-      currentHash += "|STATUS:POLLING";
-      questionDetected = true;
-    }
-
-    // Heuristic 4: "Question N" specific text
-    const qMatch = bodyText.match(/Question \d+/i);
-    if (qMatch) {
-      currentHash += `|${qMatch[0]}`;
-      questionDetected = true;
-    }
+  // Global Guard: If "Polling Closed" is present, do not notify.
+  // We use a case-insensitive check.
+  if (/Polling\s+Closed/i.test(bodyText)) {
+    // We can reset state here if we want to ensure next start is detected,
+    // or just let the "Empty" state updates handle it naturally.
+    // However, keeping the current state allows us to detect when it OPENS again.
+    // If we simply return, we might miss the transition if the state doesn't "change" further.
+    // Better strategy: We still process the state to keep 'lastState' in sync, but we suppress notification.
   }
 
-  // Decision Logic
-  if (questionDetected && currentHash !== lastHash) {
-    // Check if it's a "new" question state
-    // If lastHash was non-empty and currentHash is different, it's a new state (e.g. Q1 -> Q2)
-    // If lastHash was empty, it's definitely new.
+  const isPollingClosed = /Polling\s+Closed/i.test(bodyText);
+  let shouldNotify = false;
+
+  // --- Specific Selector Logic ---
+
+  // 1. Answer Container Logic
+  // We look for .question-answer-container (standard iClicker class)
+  const answerContainer = document.querySelector('.question-answer-container');
+  const currentAnswerText = answerContainer ? answerContainer.innerText.trim() : '';
+
+  // Rule: Only notify if transitioning from Empty -> Non-Empty
+  if (lastState.answerText === '' && currentAnswerText !== '') {
+    shouldNotify = true;
+  }
+
+  // Update state
+  lastState.answerText = currentAnswerText;
+
+
+  // 2. Image Logic
+  // We look for .question-image-container img.img-border (standard iClicker class)
+  const imgElement = document.querySelector('.question-image-container img.img-border');
+  // Check both src and currentSrc (standard prop), fallback to empty string
+  const currentImgSrc = imgElement ? (imgElement.currentSrc || imgElement.src) : '';
+
+  // Rule: Notify if src changes to a new, non-empty value
+  // Note: If lastState.imgSrc was empty, and now we have one, that's a change.
+  // If lastState.imgSrc was 'A', and now 'B', that's a change.
+  if (currentImgSrc && currentImgSrc !== lastState.imgSrc) {
+    shouldNotify = true;
+  }
+
+  // Update state
+  lastState.imgSrc = currentImgSrc;
+
+
+  // --- Fallback / Auto-Detection Logic ---
+  // If no specific selectors matched (or we want to support generic cases), we run the heuristic
+  // Only run if we haven't already decided to notify based on specific selectors.
+
+  if (!shouldNotify) {
+    let currentHash = '';
     
-    console.log('iClicker Monitor: Change detected.', { old: lastHash, new: currentHash });
-    
-    // We update lastHash immediately
-    lastHash = currentHash;
+    if (settings.selectors && settings.selectors.length > 0) {
+      // Custom Selector Mode
+      const parts = [];
+      settings.selectors.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) {
+          parts.push(el.innerText.trim());
+        }
+      });
+      currentHash = parts.join('|');
+    } else {
+      // Auto-Detection Mode Heuristics
+
+      // Keywords
+      const keywords = ['Polling', 'Question 1', 'Question 2', 'Question 3', 'Question 4', 'Question 5', 'Seconds Remaining'];
+      const keywordMatch = keywords.find(k => bodyText.includes(k));
+      if (keywordMatch) currentHash += `|KEY:${keywordMatch}`;
+
+      // Submit Button
+      const buttons = Array.from(document.querySelectorAll('button, input[type="submit"]'));
+      const activeSubmit = buttons.find(b =>
+        !b.disabled &&
+        (b.innerText.match(/Submit|Vote|Send/i) || b.value.match(/Submit|Vote|Send/i))
+      );
+      if (activeSubmit) currentHash += `|BTN:${activeSubmit.innerText}`;
+
+      // Countdown
+      if (bodyText.match(/\d{1,2}:\d{2}/)) currentHash += `|TIMER_PRESENT`;
+
+      // Polling Status (Positive only)
+      if (bodyText.match(/Polling|Poll Open/i)) currentHash += "|STATUS:POLLING";
+
+      // Question Number
+      const qMatch = bodyText.match(/Question \d+/i);
+      if (qMatch) currentHash += `|${qMatch[0]}`;
+    }
+
+    // Logic: If hash changes from empty -> non-empty, or changes content significantly
+    // We treat "Empty" as "No Question".
+    if (currentHash !== lastState.hash) {
+      if (lastState.hash === '' && currentHash !== '') {
+        shouldNotify = true;
+      } else if (lastState.hash !== '' && currentHash !== '') {
+        // Change between two active states (e.g. Q1 -> Q2)
+        shouldNotify = true;
+      }
+      // Note: If currentHash is empty (stopped), we do NOT notify.
+    }
+
+    lastState.hash = currentHash;
+  }
+
+
+  // --- Final Decision ---
+  if (shouldNotify && !isPollingClosed) {
+    console.log('iClicker Monitor: New question detected.', lastState);
     
     // Send Notification
     chrome.runtime.sendMessage({ action: 'NOTIFY' });
@@ -137,9 +170,6 @@ function checkPage() {
     if (settings.enableBeep) {
       playBeep();
     }
-  } else if (!questionDetected) {
-    // Reset hash if no question detected, so next one triggers
-    lastHash = '';
   }
 }
 
