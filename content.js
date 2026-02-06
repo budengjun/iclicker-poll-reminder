@@ -75,7 +75,9 @@ function checkPage() {
 
   // Rule: Only notify if transitioning from Empty -> Non-Empty
   if (lastState.answerText === '' && currentAnswerText !== '') {
-    shouldNotify = true;
+    if (!/answer received/i.test(currentAnswerText)) {
+      shouldNotify = true;
+    }
   }
 
   // Update state
@@ -112,7 +114,8 @@ function checkPage() {
       settings.selectors.forEach(sel => {
         const el = document.querySelector(sel);
         if (el) {
-          parts.push(el.innerText.trim());
+          const t = (el.innerText || '').trim();
+          if (t) parts.push(t);
         }
       });
       currentHash = parts.join('|');
