@@ -5,11 +5,13 @@
   "description": "Monitors iClicker student page for new questions and notifies the user.",
   "permissions": [
     "notifications",
-    "storage"
+    "storage",
+    "offscreen"
   ],
   "host_permissions": [
     "*://student.iclicker.com/*",
-    "http://localhost/*"
+    "http://localhost/*",
+    "http://[::]:*/*"
   ],
   "options_ui": {
     "page": "options.html",
@@ -26,12 +28,19 @@
     {
       "matches": [
         "*://student.iclicker.com/*",
-        "http://localhost/*"
+        "http://localhost/*",
+        "http://[::]:*/*"
       ],
       "js": [
         "content.js"
       ],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["notification.wav"],
+      "matches": ["*://student.iclicker.com/*", "http://localhost/*", "http://[::]:*/*"]
     }
   ]
 }

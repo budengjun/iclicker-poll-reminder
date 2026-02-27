@@ -12,6 +12,7 @@ let lastState = {
 
 let debounceTimer = null;
 const DEBOUNCE_DELAY = 1000; // Check max once per second to avoid spam
+let isFirstCheck = true; // Skip notification on initial page load
 
 // Load settings
 chrome.storage.sync.get({ selectors: [], enableBeep: true }, (items) => {
@@ -97,8 +98,9 @@ function checkPage() {
   // 2. Image Logic
   // We look for .question-image-container img.img-border (standard iClicker class)
   const imgElement = document.querySelector('.question-image-container img.img-border');
-  // Check both src and currentSrc (standard prop), fallback to empty string
-  const currentImgSrc = imgElement ? (imgElement.currentSrc || imgElement.src) : '';
+  // Only consider visible images (offsetParent is null for hidden elements)
+  const isImgVisible = imgElement && imgElement.offsetParent !== null;
+  const currentImgSrc = isImgVisible ? (imgElement.currentSrc || imgElement.src) : '';
 
   // Rule: Notify if src changes to a new, non-empty value
   // Note: If lastState.imgSrc was empty, and now we have one, that's a change.
@@ -137,10 +139,11 @@ function checkPage() {
       const keywordMatch = keywords.find(k => bodyText.includes(k));
       if (keywordMatch) currentHash += `|KEY:${keywordMatch}`;
 
-      // Submit Button
+      // Submit Button (only visible ones)
       const buttons = Array.from(document.querySelectorAll('button, input[type="submit"]'));
       const activeSubmit = buttons.find(b =>
         !b.disabled &&
+        b.offsetParent !== null && // visible check: hidden elements have null offsetParent
         (b.innerText.match(/Submit|Vote|Send/i) || b.value.match(/Submit|Vote|Send/i))
       );
       if (activeSubmit) currentHash += `|BTN:${activeSubmit.innerText}`;
@@ -180,41 +183,85 @@ function checkPage() {
   }
 
   // --- Final Decision ---
+  // Never notify on the first check (initial page load) — only on changes
+  if (isFirstCheck) {
+    isFirstCheck = false;
+    console.log('iClicker Monitor: Initial state recorded, skipping notification.');
+    return;
+  }
+
   if (shouldNotify && !isPollingClosed) {
     console.log('iClicker Monitor: New question detected.', lastState);
     
-    // Send Notification
-    chrome.runtime.sendMessage({ action: 'NOTIFY' });
-    
-    // Play Sound if enabled
-    if (settings.enableBeep) {
-      playBeep();
+    try {
+      // Send notification + play sound via background (bypasses autoplay policy)
+      chrome.runtime.sendMessage({ action: 'NOTIFY' });
+    } catch (e) {
+      console.warn('iClicker Monitor: Extension context invalidated. Please refresh the page.');
     }
+
+    // Show on-page visual notification (always works regardless of OS settings)
+    showPageNotification('🔔 New iClicker Question!', 'A new question or poll has been detected.');
   }
 }
 
-function playBeep() {
+function playNotificationChime() {
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.type = 'sine';
-    osc.frequency.value = 880; // A5
-    gain.gain.value = 0.1;
-
-    osc.start();
-    setTimeout(() => {
-      osc.stop();
-      ctx.close();
-    }, 500); // 0.5s beep
+    const audio = new Audio(chrome.runtime.getURL('notification.wav'));
+    audio.volume = 1.0;
+    audio.play().catch(e => console.warn('iClicker Monitor: Audio play error', e));
   } catch (e) {
-    console.error('iClicker Monitor: Audio error', e);
+    console.warn('iClicker Monitor: Extension reloaded. Please refresh the page for audio.');
   }
+}
+
+function showPageNotification(title, message) {
+  // Remove existing notification if any
+  const existing = document.getElementById('iclicker-monitor-notification');
+  if (existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'iclicker-monitor-notification';
+  banner.innerHTML = `
+    <div style="
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 2147483647;
+      background: linear-gradient(135deg, #1a73e8, #0d47a1);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 350px;
+      animation: iclickerSlideIn 0.4s ease-out;
+      cursor: pointer;
+    ">
+      <div style="font-size: 16px; font-weight: 700; margin-bottom: 4px;">${title}</div>
+      <div style="font-size: 13px; opacity: 0.9;">${message}</div>
+    </div>
+    <style>
+      @keyframes iclickerSlideIn {
+        from { transform: translateX(120%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      @keyframes iclickerSlideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(120%); opacity: 0; }
+      }
+    </style>
+  `;
+
+  document.body.appendChild(banner);
+
+  // Click to dismiss
+  banner.addEventListener('click', () => banner.remove());
+
+  // Auto-dismiss after 8 seconds
+  setTimeout(() => {
+    const el = banner.querySelector('div');
+    if (el) el.style.animation = 'iclickerSlideOut 0.4s ease-in forwards';
+    setTimeout(() => banner.remove(), 400);
+  }, 8000);
 }

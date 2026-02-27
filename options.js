@@ -31,27 +31,11 @@ const restoreOptions = () => {
   );
 };
 
-const playBeep = () => {
+const playNotificationChime = () => {
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.type = 'sine';
-    osc.frequency.value = 880; // A5
-    gain.gain.value = 0.1;
-
-    osc.start();
-    setTimeout(() => {
-      osc.stop();
-      ctx.close();
-    }, 500); // 0.5s beep
+    const audio = new Audio(chrome.runtime.getURL('notification.wav'));
+    audio.volume = 1.0;
+    audio.play().catch(e => console.error('iClicker Monitor: Audio play error', e));
   } catch (e) {
     console.error('iClicker Monitor: Audio error', e);
   }
@@ -60,7 +44,7 @@ const playBeep = () => {
 const testNotification = () => {
   chrome.runtime.sendMessage({ action: 'TEST_NOTIFY' });
   if (document.getElementById('enable-beep').checked) {
-    playBeep();
+    playNotificationChime();
   }
 };
 

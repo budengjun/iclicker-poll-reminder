@@ -3,7 +3,7 @@
 <head>
   <style>
     body {
-      width: 200px;
+      width: 220px;
       padding: 15px;
       font-family: sans-serif;
       text-align: center;
@@ -28,11 +28,22 @@
       color: white;
       border: none;
     }
+    audio {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .debug-label {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
   <div class="status">Monitoring Active</div>
   <button id="test-btn">Test Notification</button>
+  <div class="debug-label">▶ Manual audio test:</div>
+  <audio id="audio-test" controls></audio>
   <button id="settings-btn">Settings</button>
   <script src="popup.js"></script>
 </body>
